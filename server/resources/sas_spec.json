@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "codecs": ["mp3", "vorbis"],
+  "features": {
+    "pause_resume": true
+  },
+  "commands": {
+    "START": {
+      "request": {
+        "codec": "string"
+      },
+      "response": {
+        "status": "string"
+      }
+    },
+    "STOP": {
+      "request": {},
+      "response": {
+        "status": "string"
+      }
+    },
+    "PAUSE": {
+      "request": {},
+      "response": {
+        "status": "string"
+      }
+    },
+    "RESUME": {
+      "request": {},
+      "response": {
+        "status": "string"
+      }
+    }
+  }
+}
