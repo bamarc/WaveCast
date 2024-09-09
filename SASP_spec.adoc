@@ -1,0 +1,164 @@
+= Simple Audio Stream protocol (SASP)
+
+
+== 1. Introduction
+
+
+The Simple Audio Stream protocol (SASP) is designed for efficient, low-latency streaming of audio data over the QUIC transport protocol. It prioritizes a streamlined approach, focusing on core functionalities while maintaining flexibility for future enhancements.
+
+
+== 2. Protocol Overview
+
+
+SASP utilizes three distinct QUIC streams for communication:
+
+
+* Audio Payload Stream: Carries the raw encoded audio data from the server to the client.
+
+* Control Signals Stream: Facilitates bidirectional exchange of control commands and responses between the client and server.
+
+* Metadata Stream (Optional): Used for transmitting metadata associated with the audio stream, either statically or dynamically.
+
+
+== 3. Transport Layer
+
+
+SASP operates over the QUIC transport protocol, leveraging its features for efficient, reliable, and secure communication.
+
+
+== 4. Audio Payload Stream
+
+
+* Direction: Unidirectional (Server to Client)
+
+* Content: Raw encoded audio data
+
+* Format:
+
+    * Determined by the `codec` field in the mDNS TXT record advertising the SASP service.
+
+    * Potential for negotiation during connection establishment if multiple codecs are supported.
+
+    * Common codecs include:
+
+        * MP3
+
+        * AAC
+
+        * Opus
+
+        * FLAC (for lossless audio)
+
+
+== 5. Control Signals Stream
+
+
+* Direction: Bidirectional
+
+* Format: Structured data format (e.g., JSON) for encoding commands and responses.
+
+* Commands:
+
+    * `START`: Initiates audio streaming from the server.
+
+    * `STOP`: Terminates audio streaming.
+
+    * Additional commands may be defined in future extensions.
+
+
+* Responses:
+
+    * `OK`: Indicates successful execution of a command.
+
+    * `ERROR`: Signifies that a command failed, potentially accompanied by an error message.
+
+
+== 6. Metadata Stream (Optional)
+
+
+* Direction: Unidirectional (Server to Client)
+
+* Format: Structured data format (e.g., JSON) for encoding key-value pairs representing metadata.
+
+* Transport:
+
+    * Can be included in the initial HTTP/3 response headers if the metadata is relatively small and static.
+
+    * For dynamic metadata or larger datasets, a separate QUIC stream can be utilized.
+
+* Example Metadata Fields:
+
+    * `title`: Title of the audio stream
+
+    * `artist`: Artist or creator of the audio
+
+    * `album`: Album or collection the audio belongs to
+
+    * `genre`: Genre of the music
+
+    * `duration`: Total duration of the audio in seconds
+
+
+== 7. Connection Establishment
+
+
+1. Service Discovery:
+
+   * Clients discover available SASP services on the local network by sending mDNS queries for the `_sas._quic` service type.
+
+   * The server responds to these queries, advertising its presence and providing essential information, such as its hostname, port number, and supported audio codecs.
+
+   * This information is typically encoded in the mDNS TXT record associated with the service.
+
+
+2. Connection Initiation:
+
+   * Based on the information obtained from mDNS, the client initiates a QUIC connection to the server.
+
+   * The client specifies the desired hostname and port number obtained from the mDNS response.
+
+
+3. Handshake and Negotiation (Optional):
+
+   * The initial QUIC handshake takes place, establishing a secure and reliable communication channel between the client and server.
+
+   * During this handshake, the client and server may optionally engage in codec negotiation if the server supports multiple audio codecs.
+
+   * Codec Negotiation Process (if applicable):
+
+     * The client sends a list of its preferred codecs to the server.
+
+     * The server examines the client's preferences and selects a mutually supported codec.
+
+     * The server informs the client of the chosen codec.
+
+     * If no mutually supported codec is found, the connection may be terminated with an appropriate error message.
+
+
+4. Stream Establishment:
+
+   * Once the QUIC connection is established and codec negotiation (if any) is complete, the client and server create the necessary QUIC streams for audio payload, control signals, and metadata (if applicable).
+
+   * The stream identifiers for these streams are typically negotiated during the connection establishment process.
+
+
+== 8. Security Considerations
+
+
+* Transport Layer Security (TLS): SASP relies on TLS to secure the underlying QUIC connection, ensuring data confidentiality and integrity.
+
+* Authentication and Authorization: If required, additional authentication and authorization mechanisms can be implemented on top of the SASP protocol.
+
+
+== 9. Future Considerations
+
+
+* Error Handling and Recovery: Robust mechanisms for handling network errors, decoding failures, and unexpected commands should be incorporated.
+
+* Flow Control: Implement flow control techniques to manage the rate of audio data transmission and prevent overwhelming the client.
+
+* Frame Synchronization: For codecs that utilize frames (e.g., Opus), include frame boundaries or sequence numbers to aid in client-side decoding and error recovery.
+
+* Additional Control Signals: The protocol can be extended to support a wider range of control signals, such as volume adjustment, seeking within the audio stream, and requesting specific audio formats.
+
+* Scalability and Performance: Optimize the protocol for efficient handling of multiple concurrent client connections and varying network conditions.
