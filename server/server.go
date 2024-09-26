@@ -10,6 +10,8 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"github.com/jfreymuth/oggvorbis"
+
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"io"
@@ -20,10 +22,11 @@ import (
 )
 
 var (
-	WarningLog    *log.Logger
-	InfoLog       *log.Logger
-	ErrorLog      *log.Logger
-	AppContext, _ = context.WithCancel(context.Background())
+	WarningLog      *log.Logger
+	InfoLog         *log.Logger
+	ErrorLog        *log.Logger
+	AppContext, _   = context.WithCancel(context.Background())
+	ReadyToClose, _ = context.WithCancel(context.Background())
 )
 
 const http_addr = "localhost:4432"
@@ -133,22 +136,27 @@ func handleConnection(connection quic.Connection) error {
 		defer ctlStream.Close()
 		defer mediaStream.Close()
 		handleStreams(SASPConnection{Connection: &connection, ControlStream: &ctlStream, MediaStream: &mediaStream})
+		InfoLog.Println("Closing streams")
 	}()
 
 	<-connection.Context().Done()
+	InfoLog.Println("Connection closed")
 	return nil
 }
 
-func handleStreams(conn SASPConnection) {
+func handleStreams(conn SASPConnection) error {
 	// Control stream reading loop
 	for {
 		commandBytes, err := readCommandFromStream(*conn.ControlStream, "server:")
 		if err != nil {
 			ErrorLog.Println("Error reading control stream:", err)
-			continue
+			return err
+		}
+		if err == nil && commandBytes == nil {
+			return nil
 		}
 		// Process the received command
-		answer := processCommand(commandBytes)
+		answer := processCommand(commandBytes, conn)
 		_ = sendMessage(*conn.ControlStream, answer, "server:")
 	}
 
@@ -191,7 +199,7 @@ func readCommandFromStream(stream quic.Stream, id string) ([]byte, error) {
 				// Client closed the stream gracefully
 				return nil, nil
 			}
-			ErrorLog.Println(id, "Error reading control stream length:", err)
+			//ErrorLog.Println(id, "Error reading control stream length:", err)
 			return nil, err // Or handle the error more gracefully
 		}
 		totalRead += n
@@ -216,15 +224,54 @@ func readCommandFromStream(stream quic.Stream, id string) ([]byte, error) {
 	return commandBytes, nil
 }
 
-func processCommand(command []byte) []byte {
+func processCommand(command []byte, conn SASPConnection) []byte {
 	InfoLog.Println("Processing command:", string(command))
 	switch string(command) {
 	case "START":
+		go startPlayback(conn)
 		return []byte("OK")
 	case "STOP":
 		return []byte("OK, BYE")
 	default:
 		return []byte("NOT SUPPORTED")
+	}
+}
+
+func startPlayback(conn SASPConnection) {
+	stream := *conn.MediaStream
+	r, err := oggvorbis.NewReader(io.Reader(stream))
+	if err != nil {
+		fmt.Println("Error creating Vorbis decoder:", err)
+		return
+	}
+
+	// Get audio format details
+	channels := r.Channels()
+	sampleRate := r.SampleRate()
+
+	// Option 1: Play audio directly
+	playAudio(decoder, channels, sampleRate)
+
+}
+
+func playAudio(decoder *oggvorbis.Reader, channels, sampleRate int) {
+	// Initialize audio context
+	context, readyChan, err := oto.NewContext(sampleRate, channels, 2, 8192)
+	if err != nil {
+		fmt.Println("Error initializing audio context:", err)
+		return
+	}
+	<-readyChan // Wait for the context to be ready
+
+	// Create a player
+	player := context.NewPlayer()
+	defer player.Close()
+
+	// Play audio
+	fmt.Println("Playing audio...")
+	if _, err := io.Copy(player, decoder); err != nil {
+		fmt.Println("Error playing audio:", err)
+		return
 	}
 }
 

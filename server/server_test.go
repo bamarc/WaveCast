@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/quic-go/quic-go"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -51,24 +52,21 @@ func TestControlStreamData(t *testing.T) {
 	if err != nil {
 		t.Error("Received error while opening Streams", err)
 	}
-	//defer ctlStream.Close()
+	defer ctlStream.Close()
 	defer mediaStream.Close()
-
-	// try sending example payload
 
 	InfoLog.Println("Trying first command")
 	sendMessage(ctlStream, []byte("START"), "client:")
 	answer, err := readCommandFromStream(ctlStream, "client:")
-	InfoLog.Println("Received the following: ", string(answer))
+	assert.Equal(t, "OK", string(answer))
 
 	InfoLog.Println("Trying first command")
 	sendMessage(ctlStream, []byte("STOP"), "client:")
 	answer, err = readCommandFromStream(ctlStream, "client:")
-	InfoLog.Println("Received the following: ", string(answer))
+	assert.Equal(t, "OK, BYE", string(answer))
 
 	sendMessage(ctlStream, []byte("NEXT"), "client:")
 	answer, err = readCommandFromStream(ctlStream, "client:")
 	InfoLog.Println("Received the following: ", string(answer))
-
-	http.NewRequest("POST", "/admin/stop", nil)
+	assert.Equal(t, "NOT SUPPORTED", string(answer))
 }
